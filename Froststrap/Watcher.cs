@@ -84,7 +84,10 @@ namespace Froststrap
                     PlayerRichPresence = new(ActivityWatcher);
 
                 if (_watcherData.LaunchMode == LaunchMode.Player)
+                {
                     IntegrationWatcher = new IntegrationWatcher(ActivityWatcher, WindowManipulation);
+                    UI.Elements.Overlays.PartyHpOverlayWindow.InitializeWatcher(ActivityWatcher);
+                }
 
                 if (_watcherData.LaunchMode == LaunchMode.Player && App.Settings.Prop.SoftKeyEnabled)
                     Softkey = new Softkey(_watcherData.ProcessId);

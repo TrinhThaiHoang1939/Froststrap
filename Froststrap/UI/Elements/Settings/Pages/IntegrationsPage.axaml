@@ -114,6 +114,28 @@ SPDX-License-Identifier: MPL-2.0
                 </StackPanel>
             </controls:CardExpander>
 
+            <controls:CardExpander Header="Party HP Synchronization (Deepwoken)" Description="Real-time multiplayer overlay and relay system for party health status." IsExpanded="True">
+                <StackPanel Spacing="10">
+                    <controls:OptionControl
+                        Description="Broadcast and receive real-time party health over WebSockets."
+                        Header="Enable Party HP Sync">
+                        <ToggleSwitch IsChecked="{Binding EnablePartyHpSyncEnabled, Mode=TwoWay}" />
+                    </controls:OptionControl>
+
+                    <controls:OptionControl
+                        Description="Enter your shared guild or party room code."
+                        Header="Party Room Code">
+                        <TextBox Width="200" Text="{Binding PartyRoomCode, Mode=TwoWay}" />
+                    </controls:OptionControl>
+
+                    <controls:OptionControl
+                        Description="WebSocket relay endpoint URL."
+                        Header="WebSocket URL">
+                        <TextBox Width="250" Text="{Binding PartyWebSocketUrl, Mode=TwoWay}" />
+                    </controls:OptionControl>
+                </StackPanel>
+            </controls:CardExpander>
+
             <controls:CardExpander Header="{x:Static resources:Strings.Menu_Integrations_BlockCardExpander_Title}" Description="{x:Static resources:Strings.Menu_Integrations_BlockCardExpander_Description}" IsExpanded="True">
                 <StackPanel>
                     <controls:OptionControl

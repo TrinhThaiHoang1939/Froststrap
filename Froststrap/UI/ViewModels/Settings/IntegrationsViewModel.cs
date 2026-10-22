@@ -157,6 +157,35 @@ namespace Froststrap.UI.ViewModels.Settings
             set => App.Settings.Prop.AutoRejoin = value;
         }
 
+        public static bool EnablePartyHpSyncEnabled
+        {
+            get => App.Settings.Prop.EnablePartyHpSync;
+            set
+            {
+                App.Settings.Prop.EnablePartyHpSync = value;
+                if (value)
+                {
+                    _ = PartyHpManager.StartAsync();
+                }
+                else
+                {
+                    PartyHpManager.Stop();
+                }
+            }
+        }
+
+        public static string PartyRoomCode
+        {
+            get => App.Settings.Prop.PartyRoomCode;
+            set => App.Settings.Prop.PartyRoomCode = value;
+        }
+
+        public static string PartyWebSocketUrl
+        {
+            get => App.Settings.Prop.PartyWebSocketUrl;
+            set => App.Settings.Prop.PartyWebSocketUrl = value;
+        }
+
         public bool ShowGameHistoryEnabled
         {
             get => App.Settings.Prop.ShowGameHistoryMenu;

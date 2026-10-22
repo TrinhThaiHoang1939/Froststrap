@@ -33,6 +33,9 @@ namespace Froststrap.Models.Persistable
         public bool StudioWorkspaceInfo { get; set; }
         public bool StudioShowTesting { get; set; }
         public bool StudioGameButton { get; set; }
+        public bool EnablePartyHpSync { get; set; }
+        public string PartyWebSocketUrl { get; set; } = "ws://158.178.224.179:8000/ws";
+        public string PartyRoomCode { get; set; } = "";
         public ObservableCollection<CustomIntegration> CustomIntegrations { get; set; } = [];
 
         // Bootstrapper Page

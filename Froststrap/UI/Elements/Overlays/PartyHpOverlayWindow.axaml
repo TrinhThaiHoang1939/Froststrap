@@ -1,0 +1,135 @@
+<!--
+SPDX-FileCopyrightText: 2026 Froststrap
+
+SPDX-License-Identifier: MPL-2.0
+-->
+
+<Window
+    x:Class="Froststrap.UI.Elements.Overlays.PartyHpOverlayWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:overlays="clr-namespace:Froststrap.UI.Elements.Overlays"
+    Title="Froststrap Party HP HUD"
+    Width="260"
+    Height="320"
+    Background="Transparent"
+    CanResize="False"
+    WindowDecorations="None"
+    Topmost="True"
+    TransparencyLevelHint="Transparent"
+    x:DataType="overlays:PartyHpOverlayWindow"
+    mc:Ignorable="d">
+
+    <Window.Resources>
+        <overlays:FirstLetterConverter x:Key="FirstLetterConverter" />
+    </Window.Resources>
+
+    <StackPanel Margin="10" Spacing="6" DataContext="{Binding}">
+        <!-- Minimal In-game Party Config Header -->
+        <Border
+            Background="#77111111"
+            CornerRadius="4"
+            Padding="6">
+            <StackPanel Spacing="4">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock
+                        Grid.Column="0"
+                        VerticalAlignment="Center"
+                        FontSize="11"
+                        FontWeight="Bold"
+                        Foreground="#CCCCCC"
+                        Text="PARTY CONFIG" />
+                    <Button
+                        Grid.Column="1"
+                        Command="{Binding ToggleConfigCommand}"
+                        Content="⚙️"
+                        FontSize="10"
+                        Padding="4,2" />
+                </Grid>
+
+                <StackPanel IsVisible="{Binding IsConfigOpen}" Spacing="4">
+                    <TextBox
+                        PlaceholderText="Room Code"
+                        Text="{Binding RoomCodeInput, Mode=TwoWay}"
+                        FontSize="11" />
+                    <Button
+                        Command="{Binding JoinPartyCommand}"
+                        Content="Switch / Join"
+                        HorizontalAlignment="Stretch"
+                        FontSize="11"
+                        Padding="4,2" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- Party Members List -->
+        <ItemsControl ItemsSource="{Binding Members}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Grid
+                        Margin="0,3"
+                        ColumnDefinitions="Auto,*"
+                        Height="36">
+                        <!-- Square Avatar Box with First Letter -->
+                        <Border
+                            Grid.Column="0"
+                            Width="32"
+                            Height="32"
+                            Background="#2A2A2A"
+                            BorderBrush="#555555"
+                            BorderThickness="1"
+                            CornerRadius="3"
+                            Margin="0,0,8,0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Center">
+                            <TextBlock
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                FontWeight="Bold"
+                                FontSize="13"
+                                Foreground="White"
+                                Text="{Binding Username, Converter={StaticResource FirstLetterConverter}}" />
+                        </Border>
+
+                        <!-- Info & Orange HP Bar -->
+                        <Border
+                            Grid.Column="1"
+                            Background="#DD1A1A1A"
+                            BorderBrush="#333333"
+                            BorderThickness="1"
+                            CornerRadius="3"
+                            Padding="8,5"
+                            VerticalAlignment="Center"
+                            Height="32">
+                            <Grid RowDefinitions="Auto,Auto">
+                                <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+                                    <TextBlock
+                                        Grid.Column="0"
+                                        FontSize="11"
+                                        FontWeight="SemiBold"
+                                        Foreground="White"
+                                        Text="{Binding DisplayName}" />
+                                    <TextBlock
+                                        Grid.Column="1"
+                                        FontSize="10"
+                                        Foreground="#CCCCCC"
+                                        Text="{Binding Percentage, StringFormat='{}{0}%'}" />
+                                </Grid>
+                                <ProgressBar
+                                    Grid.Row="1"
+                                    Height="5"
+                                    Margin="0,3,0,0"
+                                    Background="#33000000"
+                                    Foreground="#FF7A00"
+                                    Maximum="{Binding MaxHp}"
+                                    Value="{Binding CurrentHp}" />
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </StackPanel>
+</Window>

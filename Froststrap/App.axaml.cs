@@ -617,6 +617,16 @@ internal partial class App : Application
 
                 if (OperatingSystem.IsLinux())
                     LinuxRegistry.RegisterAll();
+
+                if (Settings.Prop.EnablePartyHpSync)
+                {
+                    _ = PartyHpManager.StartAsync();
+                    Dispatcher.UIThread.Invoke(() =>
+                    {
+                        var overlay = new UI.Elements.Overlays.PartyHpOverlayWindow();
+                        overlay.Show();
+                    });
+                }
             }
             catch (Exception ex)
             {
