@@ -2,8 +2,10 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data.Converters;
+using Avalonia.Input;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
@@ -16,6 +18,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Net.Http;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -97,8 +100,35 @@ namespace Froststrap.UI.Elements.Overlays
             set => SetProperty(ref _statusText, value);
         }
 
+        private bool _useScreenCapture = App.Settings.Prop.PartyHpUseScreenCapture;
+        public bool UseScreenCapture
+        {
+            get => _useScreenCapture;
+            set => SetProperty(ref _useScreenCapture, value);
+        }
+
+        private string _barXInput = App.Settings.Prop.PartyHpBarX.ToString(CultureInfo.InvariantCulture);
+        public string BarXInput { get => _barXInput; set => SetProperty(ref _barXInput, value); }
+
+        private string _barYInput = App.Settings.Prop.PartyHpBarY.ToString(CultureInfo.InvariantCulture);
+        public string BarYInput { get => _barYInput; set => SetProperty(ref _barYInput, value); }
+
+        private string _barWidthInput = App.Settings.Prop.PartyHpBarWidth.ToString(CultureInfo.InvariantCulture);
+        public string BarWidthInput { get => _barWidthInput; set => SetProperty(ref _barWidthInput, value); }
+
+        private string _barHeightInput = App.Settings.Prop.PartyHpBarHeight.ToString(CultureInfo.InvariantCulture);
+        public string BarHeightInput { get => _barHeightInput; set => SetProperty(ref _barHeightInput, value); }
+
+        private string _healthStatus = "Waiting for health reading…";
+        public string HealthStatus
+        {
+            get => _healthStatus;
+            set => SetProperty(ref _healthStatus, value);
+        }
+
         public ICommand ToggleConfigCommand => new RelayCommand(() => IsConfigOpen = !IsConfigOpen);
         public ICommand JoinPartyCommand => new AsyncRelayCommand(JoinPartyAsync);
+        public ICommand PickRegionCommand => new AsyncRelayCommand(PickRegionAsync);
 
         private static PartyHpOverlayWindow? _instance;
         private static ActivityWatcher? _monitoredActivityWatcher;
@@ -166,12 +196,25 @@ namespace Froststrap.UI.Elements.Overlays
 
             PartyHpManager.PartyUpdated += UpdatePartyList;
             PartyHpManager.ConnectionFailed += OnConnectionFailed;
+            PartyHpManager.HealthSampleChanged += OnHealthSample;
             Closed += (s, e) =>
             {
                 PartyHpManager.PartyUpdated -= UpdatePartyList;
                 PartyHpManager.ConnectionFailed -= OnConnectionFailed;
+                PartyHpManager.HealthSampleChanged -= OnHealthSample;
                 _instance = null;
             };
+        }
+
+        private void OnHealthSample(object? sender, Froststrap.Integrations.Health.HealthSample sample)
+        {
+            string text = sample.Percent is double pct
+                ? $"Health {pct:0.#}%" +
+                  (sample.WitherPercent is double w and > 0 ? $"  · Wither {w:0.#}%" : "") +
+                  (sample.TemporaryPercent is double t and > 0 ? $"  · Temp {t:0.#}%" : "")
+                : sample.Status;
+
+            Dispatcher.UIThread.InvokeAsync(() => HealthStatus = text);
         }
 
         private void OnConnectionFailed(object? sender, string reason)
@@ -198,6 +241,53 @@ namespace Froststrap.UI.Elements.Overlays
             AvaloniaXamlLoader.Load(this);
         }
 
+        private async Task PickRegionAsync()
+        {
+            // Enabling screen capture is implicit if the user pressed Pick.
+            UseScreenCapture = true;
+            App.Settings.Prop.PartyHpUseScreenCapture = true;
+
+            // Hide this window during the pick so it doesn't cover the HP bar.
+            bool wasVisible = IsVisible;
+            try { Hide(); } catch { }
+
+            try
+            {
+                var picker = new Window(); // transient owner for Screens.All lookup
+                picker.Show();
+                picker.Hide();
+                var region = await PartyHpRegionPicker.PickAsync(picker);
+                picker.Close();
+
+                if (region != null)
+                {
+                    App.Settings.Prop.PartyHpBarX = region.X;
+                    App.Settings.Prop.PartyHpBarY = region.Y;
+                    App.Settings.Prop.PartyHpBarWidth = region.Width;
+                    App.Settings.Prop.PartyHpBarHeight = region.Height;
+                    App.Settings.Save();
+
+                    BarXInput = region.X.ToString(CultureInfo.InvariantCulture);
+                    BarYInput = region.Y.ToString(CultureInfo.InvariantCulture);
+                    BarWidthInput = region.Width.ToString(CultureInfo.InvariantCulture);
+                    BarHeightInput = region.Height.ToString(CultureInfo.InvariantCulture);
+
+                    App.Logger.Info($"[PartyHP] Region picked: {region.X},{region.Y} {region.Width}x{region.Height}. Restarting monitor.");
+
+                    // Apply immediately: restart party connection so monitor picks up the new region.
+                    await PartyHpManager.StartAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                App.Logger.Error($"[PartyHP] Region picker error: {ex.Message}");
+            }
+            finally
+            {
+                if (wasVisible) { try { Show(); } catch { } }
+            }
+        }
+
         private async Task JoinPartyAsync()
         {
             App.Settings.Prop.PartyRoomCode = RoomCodeInput;
@@ -206,6 +296,17 @@ namespace Froststrap.UI.Elements.Overlays
                 App.Settings.Prop.PartyUserId = uid;
             else
                 App.Settings.Prop.PartyUserId = 0;
+
+            App.Settings.Prop.PartyHpUseScreenCapture = UseScreenCapture;
+            if (int.TryParse(BarXInput, NumberStyles.Integer, CultureInfo.InvariantCulture, out int bx))
+                App.Settings.Prop.PartyHpBarX = bx;
+            if (int.TryParse(BarYInput, NumberStyles.Integer, CultureInfo.InvariantCulture, out int by))
+                App.Settings.Prop.PartyHpBarY = by;
+            if (int.TryParse(BarWidthInput, NumberStyles.Integer, CultureInfo.InvariantCulture, out int bw))
+                App.Settings.Prop.PartyHpBarWidth = bw;
+            if (int.TryParse(BarHeightInput, NumberStyles.Integer, CultureInfo.InvariantCulture, out int bh))
+                App.Settings.Prop.PartyHpBarHeight = bh;
+
             App.Settings.Save();
 
             IsConfigOpen = false;

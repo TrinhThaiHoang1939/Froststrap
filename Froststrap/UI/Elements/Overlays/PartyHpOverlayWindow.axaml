@@ -51,6 +51,11 @@ SPDX-License-Identifier: MPL-2.0
                 </Grid>
 
                 <StackPanel IsVisible="{Binding IsConfigOpen}" Spacing="4">
+                    <CheckBox
+                        Content="Lock overlay (click-through)"
+                        FontSize="11"
+                        IsChecked="{Binding OverlayLocked, Mode=TwoWay}" />
+
                     <TextBox
                         PlaceholderText="Room Code"
                         Text="{Binding RoomCodeInput, Mode=TwoWay}"
@@ -63,9 +68,62 @@ SPDX-License-Identifier: MPL-2.0
                         PlaceholderText="Roblox User ID"
                         Text="{Binding UserIdInput, Mode=TwoWay}"
                         FontSize="11" />
+
+                    <Separator Margin="0,4" />
+
+                    <CheckBox
+                        Content="Read HP from screen"
+                        FontSize="11"
+                        IsChecked="{Binding UseScreenCapture, Mode=TwoWay}" />
+
+                    <Grid ColumnDefinitions="*,4,*" IsVisible="{Binding UseScreenCapture}">
+                        <TextBox
+                            Grid.Column="0"
+                            PlaceholderText="Bar X"
+                            Text="{Binding BarXInput, Mode=TwoWay}"
+                            FontSize="11" />
+                        <TextBox
+                            Grid.Column="2"
+                            PlaceholderText="Bar Y"
+                            Text="{Binding BarYInput, Mode=TwoWay}"
+                            FontSize="11" />
+                    </Grid>
+                    <Grid ColumnDefinitions="*,4,*" IsVisible="{Binding UseScreenCapture}">
+                        <TextBox
+                            Grid.Column="0"
+                            PlaceholderText="Bar Width"
+                            Text="{Binding BarWidthInput, Mode=TwoWay}"
+                            FontSize="11" />
+                        <TextBox
+                            Grid.Column="2"
+                            PlaceholderText="Bar Height"
+                            Text="{Binding BarHeightInput, Mode=TwoWay}"
+                            FontSize="11" />
+                    </Grid>
+
+                    <Button
+                        Command="{Binding PickRegionCommand}"
+                        Content="Pick HP bar on screen"
+                        HorizontalAlignment="Stretch"
+                        FontSize="11"
+                        Padding="4,2"
+                        IsVisible="{Binding UseScreenCapture}" />
+
+                    <Border
+                        Background="#55000000"
+                        CornerRadius="3"
+                        Padding="6,3"
+                        IsVisible="{Binding UseScreenCapture}">
+                        <TextBlock
+                            FontSize="11"
+                            Foreground="#DDDDDD"
+                            Text="{Binding HealthStatus}"
+                            TextWrapping="Wrap" />
+                    </Border>
+
                     <Button
                         Command="{Binding JoinPartyCommand}"
-                        Content="Switch / Join"
+                        Content="Apply / Join"
                         HorizontalAlignment="Stretch"
                         FontSize="11"
                         Padding="4,2" />

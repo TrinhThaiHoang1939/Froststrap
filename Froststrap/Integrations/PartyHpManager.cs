@@ -11,6 +11,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Froststrap.Integrations.Health;
 
 namespace Froststrap.Integrations
 {
@@ -42,10 +43,15 @@ namespace Froststrap.Integrations
         private static string? _cachedPlayerName;
         private static long _cachedPlayerUserId;
         private static volatile bool _fatalClose;
+        private static HealthMonitor? _healthMonitor;
+        private static HealthSample? _latestSample;
+        private static float _lastGoodHp = 100f;
+        private static float _lastGoodMaxHp = 100f;
         public static ConcurrentDictionary<string, PartyMemberHp> PartyMembers { get; } = new();
 
         public static event EventHandler? PartyUpdated;
         public static event EventHandler<string>? ConnectionFailed;
+        public static event EventHandler<HealthSample>? HealthSampleChanged;
 
         public static bool IsConnected => _wsClient?.State == WebSocketState.Open;
 
@@ -194,8 +200,59 @@ namespace Froststrap.Integrations
             _cachedPlayerName = null;
             _cachedPlayerUserId = 0;
 
+            StopHealthMonitor();
+            _latestSample = null;
+            _lastGoodHp = 100f;
+            _lastGoodMaxHp = 100f;
+
             // Drop stale members so a reconnect / team switch starts from a clean slate.
             PartyMembers.Clear();
+        }
+
+        private static void TryStartHealthMonitor()
+        {
+            if (!App.Settings.Prop.PartyHpUseScreenCapture) return;
+
+            int x = App.Settings.Prop.PartyHpBarX;
+            int y = App.Settings.Prop.PartyHpBarY;
+            int w = App.Settings.Prop.PartyHpBarWidth;
+            int h = App.Settings.Prop.PartyHpBarHeight;
+
+            if (w < 30 || h < 4)
+            {
+                App.Logger.Warn("[PartyHP] Screen capture enabled but bar region is not configured (W/H too small). Skipping.");
+                return;
+            }
+
+            try
+            {
+                var region = new HealthRegion(x, y, w, h);
+                region.Validate();
+                var monitor = new HealthMonitor();
+                monitor.Updated += OnHealthSample;
+                monitor.Start(region);
+                _healthMonitor = monitor;
+                App.Logger.Debug($"[PartyHP] Health monitor started on region {x},{y} {w}x{h}.");
+            }
+            catch (Exception ex)
+            {
+                App.Logger.Error($"[PartyHP] Failed to start health monitor: {ex.Message}");
+            }
+        }
+
+        private static void StopHealthMonitor()
+        {
+            var monitor = _healthMonitor;
+            _healthMonitor = null;
+            if (monitor == null) return;
+            try { monitor.Updated -= OnHealthSample; } catch { }
+            try { monitor.Dispose(); } catch { }
+        }
+
+        private static void OnHealthSample(HealthSample sample)
+        {
+            _latestSample = sample;
+            try { HealthSampleChanged?.Invoke(null, sample); } catch { }
         }
 
         private static async Task SupervisorLoopAsync(CancellationToken token)
@@ -245,6 +302,8 @@ namespace Froststrap.Integrations
 
                     _wsClient = ws;
                     delayMs = InitialReconnectDelayMs;
+
+                    TryStartHealthMonitor();
 
                     if (myUserId > 0)
                     {
@@ -501,16 +560,38 @@ namespace Froststrap.Integrations
             {
                 try
                 {
-                    float simulatedHp = 97f;
-                    float simulatedMaxHp = 100f;
+                    float hp = _lastGoodHp;
+                    float maxHp = _lastGoodMaxHp;
+                    bool haveReading = false;
 
-                    string logPath = Path.Combine(Paths.DataRoot, "party_hp_local.json");
-                    if (File.Exists(logPath))
+                    // Prefer live screen-captured HP from the Merostrap-ported engine.
+                    if (App.Settings.Prop.PartyHpUseScreenCapture)
                     {
-                        string text = await File.ReadAllTextAsync(logPath, token).ConfigureAwait(false);
-                        using var doc = JsonDocument.Parse(text);
-                        if (doc.RootElement.TryGetProperty("currentHp", out var c)) simulatedHp = c.GetSingle();
-                        if (doc.RootElement.TryGetProperty("maxHp", out var m)) simulatedMaxHp = m.GetSingle();
+                        var sample = _latestSample;
+                        if (sample?.Percent is double pct)
+                        {
+                            hp = (float)pct;
+                            maxHp = 100f;
+                            haveReading = true;
+                        }
+                    }
+                    else
+                    {
+                        // Fallback: test harness file for development.
+                        string logPath = Path.Combine(Paths.DataRoot, "party_hp_local.json");
+                        if (File.Exists(logPath))
+                        {
+                            string text = await File.ReadAllTextAsync(logPath, token).ConfigureAwait(false);
+                            using var doc = JsonDocument.Parse(text);
+                            if (doc.RootElement.TryGetProperty("currentHp", out var c)) { hp = c.GetSingle(); haveReading = true; }
+                            if (doc.RootElement.TryGetProperty("maxHp", out var m)) { maxHp = m.GetSingle(); haveReading = true; }
+                        }
+                    }
+
+                    if (haveReading)
+                    {
+                        _lastGoodHp = hp;
+                        _lastGoodMaxHp = maxHp;
                     }
 
                     string selfName = _cachedPlayerName ?? Environment.UserName;
@@ -524,11 +605,11 @@ namespace Froststrap.Integrations
                         string? myAvatar = await GetPlayerAvatarUrlAsync(selfUserId).ConfigureAwait(false);
                         if (!string.IsNullOrEmpty(myAvatar)) selfMember.AvatarUrl = myAvatar;
                     }
-                    selfMember.CurrentHp = simulatedHp;
-                    selfMember.MaxHp = simulatedMaxHp;
+                    selfMember.CurrentHp = hp;
+                    selfMember.MaxHp = maxHp;
                     PartyUpdated?.Invoke(null, EventArgs.Empty);
 
-                    await SendInternalAsync(ws, simulatedHp, simulatedMaxHp, token).ConfigureAwait(false);
+                    await SendInternalAsync(ws, hp, maxHp, token).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException) { return; }
                 catch (Exception ex)

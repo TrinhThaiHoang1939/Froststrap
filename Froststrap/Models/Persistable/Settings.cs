@@ -36,6 +36,14 @@ namespace Froststrap.Models.Persistable
         public bool EnablePartyHpSync { get; set; }
         public bool PartyHpAlwaysShow { get; set; } = true;
         public string PartyWebSocketUrl { get; set; } = "ws://158.178.224.179:8000/ws";
+        public bool PartyHpUseScreenCapture { get; set; }
+        public int PartyHpBarX { get; set; }
+        public int PartyHpBarY { get; set; }
+        public int PartyHpBarWidth { get; set; }
+        public int PartyHpBarHeight { get; set; }
+        public bool PartyHpOverlayLocked { get; set; } = true;
+        public int PartyHpOverlayX { get; set; } = 20;
+        public int PartyHpOverlayY { get; set; } = 150;
         public string PartyRoomCode { get; set; } = "";
         public string PartyUsername { get; set; } = "";
         public long PartyUserId { get; set; }
