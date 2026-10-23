@@ -174,6 +174,12 @@ namespace Froststrap.UI.ViewModels.Settings
             }
         }
 
+        public static bool PartyHpAlwaysShowEnabled
+        {
+            get => App.Settings.Prop.PartyHpAlwaysShow;
+            set => App.Settings.Prop.PartyHpAlwaysShow = value;
+        }
+
         public static string PartyRoomCode
         {
             get => App.Settings.Prop.PartyRoomCode;

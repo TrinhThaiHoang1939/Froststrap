@@ -24,6 +24,7 @@ SPDX-License-Identifier: MPL-2.0
 
     <Window.Resources>
         <overlays:FirstLetterConverter x:Key="FirstLetterConverter" />
+        <overlays:UrlToBitmapConverter x:Key="UrlToBitmapConverter" />
     </Window.Resources>
 
     <StackPanel Margin="10" Spacing="6" DataContext="{Binding}">
@@ -54,6 +55,14 @@ SPDX-License-Identifier: MPL-2.0
                         PlaceholderText="Room Code"
                         Text="{Binding RoomCodeInput, Mode=TwoWay}"
                         FontSize="11" />
+                    <TextBox
+                        PlaceholderText="Roblox Username"
+                        Text="{Binding UsernameInput, Mode=TwoWay}"
+                        FontSize="11" />
+                    <TextBox
+                        PlaceholderText="Roblox User ID"
+                        Text="{Binding UserIdInput, Mode=TwoWay}"
+                        FontSize="11" />
                     <Button
                         Command="{Binding JoinPartyCommand}"
                         Content="Switch / Join"
@@ -64,6 +73,18 @@ SPDX-License-Identifier: MPL-2.0
             </StackPanel>
         </Border>
 
+        <!-- Connection status (hidden when empty) -->
+        <Border
+            Background="#AA3A1111"
+            CornerRadius="3"
+            Padding="6,3"
+            IsVisible="{Binding StatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+            <TextBlock
+                FontSize="11"
+                Foreground="#FFBABA"
+                Text="{Binding StatusText}" />
+        </Border>
+
         <!-- Party Members List -->
         <ItemsControl ItemsSource="{Binding Members}">
             <ItemsControl.ItemTemplate>
@@ -72,7 +93,7 @@ SPDX-License-Identifier: MPL-2.0
                         Margin="0,3"
                         ColumnDefinitions="Auto,*"
                         Height="36">
-                        <!-- Square Avatar Box with First Letter -->
+                        <!-- Square Avatar Box with Image or Initial -->
                         <Border
                             Grid.Column="0"
                             Width="32"
@@ -84,13 +105,19 @@ SPDX-License-Identifier: MPL-2.0
                             Margin="0,0,8,0"
                             HorizontalAlignment="Left"
                             VerticalAlignment="Center">
-                            <TextBlock
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center"
-                                FontWeight="Bold"
-                                FontSize="13"
-                                Foreground="White"
-                                Text="{Binding Username, Converter={StaticResource FirstLetterConverter}}" />
+                            <Grid>
+                                <Image
+                                    Source="{Binding AvatarUrl, Converter={StaticResource UrlToBitmapConverter}}"
+                                    Stretch="UniformToFill" />
+                                <TextBlock
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    FontWeight="Bold"
+                                    FontSize="13"
+                                    Foreground="White"
+                                    IsVisible="{Binding AvatarUrl, Converter={x:Static ObjectConverters.IsNull}}"
+                                    Text="{Binding Username, Converter={StaticResource FirstLetterConverter}}" />
+                            </Grid>
                         </Border>
 
                         <!-- Info & Orange HP Bar -->

@@ -123,6 +123,12 @@ SPDX-License-Identifier: MPL-2.0
                     </controls:OptionControl>
 
                     <controls:OptionControl
+                        Description="Show overlay always when Party HP Sync is enabled (bypasses Place ID check for easy testing)."
+                        Header="Always Show Overlay">
+                        <ToggleSwitch IsChecked="{Binding PartyHpAlwaysShowEnabled, Mode=TwoWay}" />
+                    </controls:OptionControl>
+
+                    <controls:OptionControl
                         Description="Enter your shared guild or party room code."
                         Header="Party Room Code">
                         <TextBox Width="200" Text="{Binding PartyRoomCode, Mode=TwoWay}" />

@@ -98,7 +98,11 @@ sealed class Program
 
         try
         {
-            NativeNotify.Init();
+            try
+            {
+                NativeNotify.Init();
+            }
+            catch { }
             BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
         }
         catch (Exception ex)
