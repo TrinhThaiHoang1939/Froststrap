@@ -126,6 +126,18 @@ namespace Froststrap.UI.Elements.Overlays
             set => SetProperty(ref _healthStatus, value);
         }
 
+        private bool _overlayLocked = App.Settings.Prop.PartyHpOverlayLocked;
+        public bool OverlayLocked
+        {
+            get => _overlayLocked;
+            set
+            {
+                if (!SetProperty(ref _overlayLocked, value)) return;
+                App.Settings.Prop.PartyHpOverlayLocked = value;
+                App.Settings.Save();
+            }
+        }
+
         public ICommand ToggleConfigCommand => new RelayCommand(() => IsConfigOpen = !IsConfigOpen);
         public ICommand JoinPartyCommand => new AsyncRelayCommand(JoinPartyAsync);
         public ICommand PickRegionCommand => new AsyncRelayCommand(PickRegionAsync);
@@ -140,6 +152,7 @@ namespace Froststrap.UI.Elements.Overlays
             _monitorCts?.Cancel();
             _monitorCts = new CancellationTokenSource();
 
+            // Lifecycle loop: creates/destroys the overlay based on Deepwoken detection.
             _ = Task.Run(async () =>
             {
                 while (!_monitorCts.Token.IsCancellationRequested)
@@ -149,11 +162,11 @@ namespace Froststrap.UI.Elements.Overlays
                         long placeId = _monitoredActivityWatcher?.Data?.PlaceId ?? 0;
                         bool isDeepwoken = placeId == 4111023553;
                         bool alwaysShow = App.Settings.Prop.PartyHpAlwaysShow;
-                        bool shouldShow = App.Settings.Prop.EnablePartyHpSync && (alwaysShow || isDeepwoken);
+                        bool shouldExist = App.Settings.Prop.EnablePartyHpSync && (alwaysShow || isDeepwoken);
 
                         await Dispatcher.UIThread.InvokeAsync(() =>
                         {
-                            if (shouldShow)
+                            if (shouldExist)
                             {
                                 if (_instance == null)
                                 {
@@ -161,10 +174,6 @@ namespace Froststrap.UI.Elements.Overlays
                                     _instance = new PartyHpOverlayWindow();
                                     _instance.Show();
                                     _ = PartyHpManager.StartAsync();
-                                }
-                                else if (!_instance.IsVisible)
-                                {
-                                    _instance.Show();
                                 }
                             }
                             else
@@ -184,7 +193,56 @@ namespace Froststrap.UI.Elements.Overlays
                     await Task.Delay(1500, _monitorCts.Token);
                 }
             }, _monitorCts.Token);
+
+            // Foreground loop: hides the overlay when the user tabs away from Roblox or
+            // Froststrap itself, and re-shows it when either comes back to focus.
+            _ = Task.Run(async () =>
+            {
+                int ourPid = Environment.ProcessId;
+                while (!_monitorCts.Token.IsCancellationRequested)
+                {
+                    try
+                    {
+                        bool allowed = IsForegroundAllowed(ourPid);
+                        await Dispatcher.UIThread.InvokeAsync(() =>
+                        {
+                            var instance = _instance;
+                            if (instance == null) return;
+                            if (allowed && !instance.IsVisible) instance.Show();
+                            else if (!allowed && instance.IsVisible) instance.Hide();
+                        });
+                    }
+                    catch { }
+
+                    await Task.Delay(250, _monitorCts.Token);
+                }
+            }, _monitorCts.Token);
         }
+
+        private static bool IsForegroundAllowed(int ourPid)
+        {
+            if (!OperatingSystem.IsWindows()) return true;
+            try
+            {
+                var hwnd = GetForegroundWindow();
+                if (hwnd == IntPtr.Zero) return false;
+                _ = GetWindowThreadProcessId(hwnd, out uint fgPid);
+                if (fgPid == 0) return false;
+                if ((int)fgPid == ourPid) return true; // our own window (overlay / main / picker)
+                using var p = Process.GetProcessById((int)fgPid);
+                return p.ProcessName.StartsWith("RobloxPlayer", StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
         public PartyHpOverlayWindow()
         {
@@ -192,7 +250,10 @@ namespace Froststrap.UI.Elements.Overlays
             DataContext = this;
 
             WindowStartupLocation = WindowStartupLocation.Manual;
-            Position = new Avalonia.PixelPoint(20, 150);
+            Position = new PixelPoint(App.Settings.Prop.PartyHpOverlayX, App.Settings.Prop.PartyHpOverlayY);
+
+            PositionChanged += OnPositionChanged;
+            PointerPressed += OnPointerPressed;
 
             PartyHpManager.PartyUpdated += UpdatePartyList;
             PartyHpManager.ConnectionFailed += OnConnectionFailed;
@@ -240,6 +301,23 @@ namespace Froststrap.UI.Elements.Overlays
         {
             AvaloniaXamlLoader.Load(this);
         }
+
+        private void OnPositionChanged(object? sender, PixelPointEventArgs e)
+        {
+            // Persist position whenever it changes (only meaningful when the user drags).
+            App.Settings.Prop.PartyHpOverlayX = e.Point.X;
+            App.Settings.Prop.PartyHpOverlayY = e.Point.Y;
+            App.Settings.Save();
+        }
+
+        private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            // When unlocked, let the user drag the overlay anywhere.
+            if (OverlayLocked) return;
+            if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+            try { BeginMoveDrag(e); } catch { }
+        }
+
 
         private async Task PickRegionAsync()
         {

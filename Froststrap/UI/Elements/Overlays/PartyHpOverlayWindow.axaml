@@ -13,7 +13,8 @@ SPDX-License-Identifier: MPL-2.0
     xmlns:overlays="clr-namespace:Froststrap.UI.Elements.Overlays"
     Title="Froststrap Party HP HUD"
     Width="260"
-    Height="320"
+    MaxHeight="700"
+    SizeToContent="Height"
     Background="Transparent"
     CanResize="False"
     WindowDecorations="None"
@@ -27,6 +28,10 @@ SPDX-License-Identifier: MPL-2.0
         <overlays:UrlToBitmapConverter x:Key="UrlToBitmapConverter" />
     </Window.Resources>
 
+    <ScrollViewer
+        MaxHeight="700"
+        HorizontalScrollBarVisibility="Disabled"
+        VerticalScrollBarVisibility="Auto">
     <StackPanel Margin="10" Spacing="6" DataContext="{Binding}">
         <!-- Minimal In-game Party Config Header -->
         <Border
@@ -52,7 +57,7 @@ SPDX-License-Identifier: MPL-2.0
 
                 <StackPanel IsVisible="{Binding IsConfigOpen}" Spacing="4">
                     <CheckBox
-                        Content="Lock overlay (click-through)"
+                        Content="Lock overlay position"
                         FontSize="11"
                         IsChecked="{Binding OverlayLocked, Mode=TwoWay}" />
 
@@ -217,4 +222,5 @@ SPDX-License-Identifier: MPL-2.0
             </ItemsControl.ItemTemplate>
         </ItemsControl>
     </StackPanel>
+    </ScrollViewer>
 </Window>
